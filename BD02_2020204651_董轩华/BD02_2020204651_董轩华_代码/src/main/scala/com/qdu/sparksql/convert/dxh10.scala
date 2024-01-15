@@ -1,0 +1,30 @@
+package com.qdu.sparksql.convert
+
+import org.apache.spark.SparkConf
+import org.apache.spark.sql.{SaveMode, SparkSession}
+
+object dxh10 {
+  def main(args: Array[String]): Unit = {
+    val sc1 = new SparkConf().setMaster("local[*]").setAppName("sparkSQL")
+    val sc2 = SparkSession.builder().config(sc1).getOrCreate()
+
+    //导入数据
+    val df1_user = sc2.read.option("header","true").option("inferSchema","true").csv("input/electriccardata_clean.csv")
+    df1_user.createOrReplaceTempView("electriccardata_clean")
+    val df2 = sc2.sql(
+      """select brand,count(*) from electriccardata_clean
+        |where PriceEuro>50000 and PriceEuro<100000 and RapidCharge='Yes' and Seats=4 or Seats=5
+        |group by brand
+         """.stripMargin)
+    df2.show
+    df2.write
+      .format("jdbc")
+      .option("url","jdbc:mysql://niit-master:3306/sem7")
+      .option("driver","com.mysql.cj.jdbc.Driver")
+      .option("user","root")
+      .option("password","root")
+      .option("dbtable","dxh10")
+      .mode(SaveMode.Append)
+      .save()
+  }
+}
